@@ -63,6 +63,9 @@ def build_nodal_industrial_energy_demand():
         buses = keys.index[keys.country == country]
         mapping = sector_mapping.get(sector, "population")
 
+        if mapping not in keys.columns:
+            continue  # skip this sector if the mapping column is missing
+
         key = keys.loc[buses, mapping]
         demand = industrial_demand[country, sector]
 

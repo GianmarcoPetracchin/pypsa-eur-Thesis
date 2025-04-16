@@ -142,6 +142,7 @@ def fix_country_assignment_for_hac(n: pypsa.Network) -> None:
             )
             n.buses.at[disconnected_bus, "country"] = new_country
 
+################################################################## forcing the focus weights ################################################################
 
 def distribute_n_clusters_to_countries(
     n: pypsa.Network,
@@ -203,6 +204,90 @@ def distribute_n_clusters_to_countries(
     m.solve(solver_name=solver_name)
     return m.solution["n"].to_series().astype(int)
 
+
+#########################################################################################################################################
+
+# def distribute_n_clusters_to_countries(
+#     n: pypsa.Network,
+#     n_clusters: int,
+#     cluster_weights: pd.Series,
+#     focus_weights: dict | None = None,
+#     solver_name: str = "scip",  # unused in this version
+# ) -> pd.Series:
+#     """
+#     Hard allocation of number of clusters per (country, sub_network),
+#     based on exact focus_weights and remaining clusters distributed by cluster_weights.
+#     """
+
+#     # Group load or other weights by (country, sub_network)
+#     cluster_weight_by_region = cluster_weights.groupby([n.buses.country, n.buses.sub_network]).sum()
+
+#     # Start from zero
+#     n_clusters_c = pd.Series(0, index=cluster_weight_by_region.index, dtype=int)
+
+#     # 1. Apply exact focus_weights (like DK: 0.8)
+#     fixed_cluster_allocations = {}
+#     assigned = 0
+
+#     if focus_weights:
+#         for country, weight in focus_weights.items():
+#             n_target = round(weight * n_clusters)
+#             assigned += n_target
+
+#             # Get all subnetworks for this country
+#             matching_indices = cluster_weight_by_region.loc[
+#                 cluster_weight_by_region.index.get_level_values("country") == country
+#             ]
+
+#             if len(matching_indices) == 0:
+#                 raise ValueError(f"No subnetworks found for country '{country}' in bus index.")
+
+#             # Distribute equally or by weight across subnetworks
+#             normalized_weights = matching_indices / matching_indices.sum()
+#             allocated = (normalized_weights * n_target).round().astype(int)
+
+#             # Adjust rounding errors to hit the target exactly
+#             # 🚨 Force at least 1 cluster for every allocated region
+#             allocated[allocated == 0] = 1
+            
+#             # 🧮 Re-adjust if sum now exceeds the target
+#             while allocated.sum() > n_target:
+#                 idx = allocated.idxmax()
+#                 if allocated[idx] > 1:  # Don’t drop below 1
+#                     allocated[idx] -= 1
+            
+#             # 🧮 If we still haven’t hit target, add to the smallest
+#             while allocated.sum() < n_target:
+#                 idx = allocated.idxmin()
+#                 allocated[idx] += 1
+            
+
+#             n_clusters_c.loc[allocated.index] = allocated
+
+#     # 2. Distribute remaining clusters to everyone else
+#     remaining = n_clusters - assigned
+#     if remaining > 0:
+#         remainder_mask = ~n_clusters_c.index.isin(n_clusters_c[n_clusters_c > 0].index)
+#         remaining_weights = cluster_weight_by_region[remainder_mask]
+#         normalized = remaining_weights / remaining_weights.sum()
+#         additional = (normalized * remaining).round().astype(int)
+
+#         # Adjust rounding error
+#         while additional.sum() != remaining:
+#             diff = remaining - additional.sum()
+#             idx = additional.idxmax() if diff < 0 else additional.idxmin()
+#             additional[idx] += diff
+
+#         n_clusters_c.loc[additional.index] = additional
+
+#     # Final sanity check
+#     assert n_clusters_c.sum() == n_clusters, (
+#         f"Final cluster count mismatch: expected {n_clusters}, got {n_clusters_c.sum()}"
+#     )
+
+#     return n_clusters_c
+
+# ######################################################################################################################
 
 def busmap_for_n_clusters(
     n: pypsa.Network,
@@ -306,6 +391,19 @@ def cluster_regions(
     busmap = reduce(lambda x, y: x.map(y), busmaps[1:], busmaps[0])
     columns = ["name", "country", "geometry"] if with_country else ["name", "geometry"]
     regions = regions.reindex(columns=columns).set_index("name")
+
+    # Inside cluster_regions()
+    print("🗺️ Regions available for dissolve:")
+    print(regions.index.tolist())
+    
+    print("🧩 Cluster names in busmap:")
+    print(busmap.unique().tolist())
+    
+    missing_shapes = set(busmap.unique()) - set(regions.index)
+    if missing_shapes:
+        print("🚫 Missing region shapes for:", sorted(missing_shapes))
+
+
     regions_c = regions.dissolve(busmap)
     regions_c.index.name = "name"
     return regions_c.reset_index()
@@ -542,6 +640,11 @@ if __name__ == "__main__":
             busmap,
             aggregation_strategies=params.aggregation_strategies,
         )
+        print("📊 Unique clusters per country:")
+        print(clustering.busmap.unique())
+        print(pd.Series(clustering.busmap.unique()).str[:2].value_counts().sort_index())
+
+
 
     nc = clustering.n
 
