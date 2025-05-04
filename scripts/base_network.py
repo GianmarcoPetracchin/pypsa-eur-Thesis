@@ -1269,6 +1269,45 @@ def clean_dict(
 
     return diction
 
+######################################################################################################################################### Original ###########################################################################################
+
+# def get_nearest_neighbour(
+#     row: pd.Series,
+#     admin_shapes: gpd.GeoDataFrame,
+# ) -> str:
+#     """
+#     Finds the nearest neighbour containing substations within the same region.
+
+#     Parameters
+#     ----------
+#         row (pd.Series): Series containing information about the region.
+#         admin_shapes (gpd.GeoDataFrame): GeoDataFrame containing all administrative regions.
+
+#     Returns
+#     -------
+#         str: Index of the nearest neighbour.
+#     """
+#     country = row["country"]
+#     gdf = gpd.GeoDataFrame([row.loc[["country", "geometry"]]], crs=admin_shapes.crs)
+#     nearest_neighbours = admin_shapes.loc[
+#         (admin_shapes.index != row.name)
+#         & (admin_shapes["country"] == country)
+#         & (admin_shapes["isempty"] == False),
+#         ["country", "geometry"],
+#     ]
+
+#     nearest_neighbour = (
+#         gdf.to_crs(epsg=3035)
+#         .sjoin_nearest(
+#             nearest_neighbours.to_crs(epsg=3035),
+#             how="left",
+#         )["index_right"]
+#         .values[0]
+#     )
+
+#     return nearest_neighbour
+
+########################################################################################################################################## New ###########################################################################################
 
 def get_nearest_neighbour(
     row: pd.Series,
@@ -1284,10 +1323,11 @@ def get_nearest_neighbour(
 
     Returns
     -------
-        str: Index of the nearest neighbour.
+        str: Index of the nearest neighbour, or 'missing' if not found.
     """
     country = row["country"]
     gdf = gpd.GeoDataFrame([row.loc[["country", "geometry"]]], crs=admin_shapes.crs)
+
     nearest_neighbours = admin_shapes.loc[
         (admin_shapes.index != row.name)
         & (admin_shapes["country"] == country)
@@ -1295,17 +1335,28 @@ def get_nearest_neighbour(
         ["country", "geometry"],
     ]
 
-    nearest_neighbour = (
-        gdf.to_crs(epsg=3035)
-        .sjoin_nearest(
+    if nearest_neighbours.empty:
+        logger.warning(f"No valid neighbours found for region {row.name} in country {country}")
+        return "missing"
+
+    try:
+        match = gdf.to_crs(epsg=3035).sjoin_nearest(
             nearest_neighbours.to_crs(epsg=3035),
             how="left",
-        )["index_right"]
-        .values[0]
-    )
+        )
 
-    return nearest_neighbour
+        if "index_right" in match.columns:
+            nearest_index = match["index_right"].values[0]
+            return nearest_index
+        else:
+            logger.warning(f"No index_right in nearest neighbour join for region {row.name}")
+    except Exception as e:
+        logger.error(f"Error finding nearest neighbour for {row.name}: {e}")
 
+    return None
+
+
+###########################################################################################################################################################################################################################################
 
 def merge_regions_recursive(
     admin_shapes: gpd.GeoDataFrame,
@@ -1370,6 +1421,15 @@ def merge_regions_recursive(
         # If there are multiple neighbours with the same number of substations, the one with the smallest area is first.
         # ascending = True (default) - For this to work, substations_dict was multiplied by -1
         # Most negative number of substation (smallest) comes first
+        # Remove None values from neighbour lists to avoid KeyError
+
+        ############################################################################### added to make the change in the function above work #########################################################################
+        if "neighbours" in admin_shapes.columns:
+            admin_shapes["neighbours"] = admin_shapes["neighbours"].apply(
+                lambda lst: [n for n in lst if n is not None] if isinstance(lst, list) else []
+            )
+        ################################################################################################################################################################################################################
+
         admin_shapes.loc[b_isempty_hasneighbours, "neighbours"] = admin_shapes.loc[
             b_isempty_hasneighbours
         ].apply(
@@ -1381,9 +1441,18 @@ def merge_regions_recursive(
 
         # Find all first neighbours and
         # create dict with first neighbours as keys and list of regions of which they are neighbours as values
+
+        ######################################################################## original ######################################################################################
+        # first_neighbours = admin_shapes.loc[
+        #     b_isempty_hasneighbours, "neighbours"
+        # ].apply(lambda x: x[0])
+        ############################################################################## New ######################################################################################
         first_neighbours = admin_shapes.loc[
             b_isempty_hasneighbours, "neighbours"
-        ].apply(lambda x: x[0])
+        ].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else None)
+
+        first_neighbours = first_neighbours.dropna()
+        #########################################################################################################################################################################
         first_neighbours = (
             first_neighbours.groupby(first_neighbours)
             .apply(lambda x: x.index.tolist())
