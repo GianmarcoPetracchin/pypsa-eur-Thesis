@@ -409,12 +409,11 @@ biomass:
   share_sustainable_potential_available:
     2020: 0
     2025: 0.33
-    2030: 0.33
-    2035: 0.33
-    2040: 0.33
-    2045: 0.33
-    2050: 0.33
-
+    2030: 0.66
+    2035: 0.77
+    2040: 1
+    2045: 1
+    2050: 1
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#solar-thermal
 solar_thermal:
