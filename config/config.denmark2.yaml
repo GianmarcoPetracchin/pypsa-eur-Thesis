@@ -95,9 +95,9 @@ electricity:
 
   extendable_carriers:
     Generator: [solar, solar-hsat, onwind, offwind-ac, offwind-dc, offwind-float, OCGT, CCGT]
-    StorageUnit: [] # battery, H2
+    StorageUnit: [battery, H2] # battery, H2
     Store: [battery, H2]
-    Link: [] # H2 pipeline
+    Link: [H2 pipeline] # H2 pipeline
 
   powerplants_filter: (DateOut >= 2024 or DateOut != DateOut) and not (Country == 'Germany' and Fueltype == 'Nuclear')
   custom_powerplants: false
@@ -286,7 +286,7 @@ lines:
     750.: "Al/St 560/50 4-bundle 750.0"
   s_max_pu: 0.7
   s_nom_max: .inf
-  max_extension: 20000 #MW
+  max_extension: 100000 #MW
   length_factor: 1.25
   reconnect_crimea: true
   under_construction: 'keep' # 'zero': set capacity to zero, 'remove': remove, 'keep': with full capacity for lines in grid extract
@@ -301,7 +301,7 @@ lines:
 links:
   p_max_pu: 1.0
   p_nom_max: .inf
-  max_extension: 30000 #MW
+  max_extension: 100000 #MW
   length_factor: 1.25
   under_construction: 'keep' # 'zero': set capacity to zero, 'remove': remove, 'keep': with full capacity for lines in grid extract
 
@@ -321,7 +321,7 @@ transmission_projects:
   - confirmed
     #- planned_not_yet_permitted
     #- under_consideration
-  new_link_capacity: zero #keep or zero
+  new_link_capacity: keep #keep or zero
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#transformers
 transformers:
@@ -452,9 +452,9 @@ sector:
       2025: 0.15
       2030: 0.3
       2035: 0.45
-      2040: 0.6
-      2045: 0.8
-      2050: 1.0
+      2040: 0.5
+      2045: 0.5
+      2050: 0.5
     district_heating_loss: 0.15
     supply_temperature_approximation:
       max_forward_temperature_baseyear:
@@ -528,10 +528,10 @@ sector:
     2020: 0
     2025: 0.15
     2030: 0.3
-    2035: 0.45
-    2040: 0.7
-    2045: 0.85
-    2050: 1
+    2035: 0.5
+    2040: 0.5
+    2045: 0.5
+    2050: 0.5
   land_transport_ice_share:
     2020: 1
     2025: 0.85
@@ -564,9 +564,9 @@ sector:
     2025: 0.15
     2030: 0.3
     2035: 0.5
-    2040: 0.7
-    2045: 0.85
-    2050: 1
+    2040: 0.5
+    2045: 0.5
+    2050: 0.5
   shipping_oil_share:
     2020: 1
     2025: 0.85
