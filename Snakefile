@@ -20,7 +20,7 @@ from scripts._helpers import (
 
 # configfile: "config/config.default.yaml"
 configfile: "config/plotting.default.yaml"
-configfile: "config/config.denmark20.yaml"
+configfile: "config/config.denmark23NEW.yaml"
 
 
 run = config["run"]
